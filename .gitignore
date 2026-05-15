@@ -1,0 +1,37 @@
+# Databases
+*.db
+*.db-shm
+*.db-wal
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.venv/
+.venv1/
+
+# Build artifacts
+build/
+dist/
+# Keep the app's own spec file, ignore others
+*.spec
+!PrinterSupplyScanner.spec
+
+# Local overrides (copy from oids.json and IPS.txt, then fill in)
+oids.local.json
+ips.local.txt
+
+# IDE
+.idea/
+.vscode/
+
+# License files
+license.key
+license.key.pub
+.license
+license_verifier.py
+
+# OS
+Thumbs.db
+.DS_Store
