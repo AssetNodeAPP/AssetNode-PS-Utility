@@ -265,12 +265,12 @@ A **Force Cleanup** button is available to immediately delete all records older 
 
 ## Configuration Files
 
-| File                | Purpose                                         |
-|---------------------|-------------------------------------------------|
+| File                | Purpose                                                    |
+|---------------------|------------------------------------------------------------|
 | `oids.json`         | OID definitions, database paths, email config, alert thresholds, scan settings |
-| `IPS.txt`           | One IP address per line — the printers to scan  |
-| `PrinterSupplies.db`| SQLite database with all scan data and history  |
-| `Printers.db`       | Optional secondary database for hostname records|
+| `IPS.txt`           | One IP address per line — the printers to scan             |
+| `PrinterSupplies.db`| SQLite database with all scan data and history             |
+| `Printers.db`       | Optional secondary database for hostname records           |
 
 ### `oids.json` Structure
 

@@ -2,6 +2,7 @@
 # Open source. MIT License.
 
 import smtplib
+import sys
 from email.message import EmailMessage
 import asyncio
 import json
@@ -23,14 +24,24 @@ from pysnmp.hlapi.v3arch.asyncio.transport import UdpTransportTarget
 from pysnmp.hlapi.v3arch.asyncio.context import ContextData
 from pysnmp.smi.rfc1902 import ObjectType, ObjectIdentity
 
-# CONFIGURATION TEST1
+# ============================================================
+# Path resolution (works from source and PyInstaller bundle)
+# ============================================================
+
+if getattr(sys, 'frozen', False):
+    BASE_DIR = sys._MEIPASS
+else:
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+OID_FILE = os.path.join(BASE_DIR, "oids.json")
+IPS_FILE = os.path.join(BASE_DIR, "IPS.txt")
+
 # ============================================================
 
 COMMUNITY = "public"
 PORT = 161
 TIMEOUT = 1
 RETRIES = 1
-OID_FILE = "oids.json"
 DAILY_HISTORY_DAYS = 180
 MONTHLY_HISTORY_YEARS = 2
 MONTHLY_SNAPSHOTS_PER_MONTH = 2
@@ -580,6 +591,17 @@ def save_supply_history(ip, model, supplies, db_path=None):
     conn = get_db_connection(db_path)
     c = conn.cursor()
 
+    c.execute("""CREATE TABLE IF NOT EXISTS supply_history (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        ip TEXT NOT NULL,
+        model TEXT,
+        supply_name TEXT NOT NULL,
+        value TEXT,
+        scan_date TEXT NOT NULL,
+        timestamp TEXT NOT NULL,
+        UNIQUE(ip, supply_name, scan_date)
+    )""")
+
     scan_date = datetime.now().strftime("%Y-%m-%d")
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
@@ -614,6 +636,17 @@ def cleanup_supply_history(db_path=None, verbose=False):
 
     conn = get_db_connection(db_path)
     c = conn.cursor()
+
+    c.execute("""CREATE TABLE IF NOT EXISTS supply_history (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        ip TEXT NOT NULL,
+        model TEXT,
+        supply_name TEXT NOT NULL,
+        value TEXT,
+        scan_date TEXT NOT NULL,
+        timestamp TEXT NOT NULL,
+        UNIQUE(ip, supply_name, scan_date)
+    )""")
 
     today = datetime.now().date()
     cutoff_90 = today - timedelta(days=CLEANUP_90DAY_THRESHOLD)   # 90 days ago
@@ -711,6 +744,17 @@ def force_cleanup_supply_history(db_path=None):
 
     conn = get_db_connection(db_path)
     c = conn.cursor()
+
+    c.execute("""CREATE TABLE IF NOT EXISTS supply_history (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        ip TEXT NOT NULL,
+        model TEXT,
+        supply_name TEXT NOT NULL,
+        value TEXT,
+        scan_date TEXT NOT NULL,
+        timestamp TEXT NOT NULL,
+        UNIQUE(ip, supply_name, scan_date)
+    )""")
 
     today = datetime.now().date()
     cutoff = today - timedelta(days=DAILY_HISTORY_DAYS)
@@ -2665,15 +2709,16 @@ class PrinterScannerGUI:
 
     def load_ips(self):
         try:
-            with open("ips.txt") as f:
+            with open("IPS.txt") as f:
                 self.ips = [line.strip() for line in f if line.strip()]
             self.ip_count_var.set(f"IPs loaded: {len(self.ips)}")
             self.log(f"✅ Loaded {len(self.ips)} IP addresses")
         except FileNotFoundError:
             self.ips = []
             self.ip_count_var.set("IPs loaded: 0")
-            messagebox.showerror("Error", "ips.txt file not found!")
-            self.log("❌ Error: ips.txt file not found!")
+            with open("IPS.txt", "w") as f:
+                f.write("")
+            self.log("📄 Created empty IPS.txt file")
 
     def log(self, message):
         timestamp = datetime.now().strftime("%H:%M:%S")

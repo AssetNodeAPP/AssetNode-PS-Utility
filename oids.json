@@ -8,7 +8,95 @@
     "MODELS": {
         "GENERIC": {
             "Black Toner Current": "1.3.6.1.2.1.43.11.1.1.9.1.1",
+            "Black Toner Max": "1.3.6.1.2.1.43.11.1.1.8.1.1",
+            "Imaging Unit %": "1.3.6.1.2.1.43.11.1.1.9.1.5",
+            "Impressions %": "1.3.6.1.4.1.253.8.53.13.2.1.6.1.20.1"
+        },
+        "CDK Printing System": {
+            "Black Toner Current": "1.3.6.1.2.1.43.11.1.1.9.1.1",
             "Black Toner Max": "1.3.6.1.2.1.43.11.1.1.8.1.1"
+        },
+        "HP ETHERNET MULTI-ENVIRONMENT": {
+            "Black Toner Current": "1.3.6.1.2.1.43.11.1.1.9.1.1",
+            "Black Toner Max": "1.3.6.1.2.1.43.11.1.1.8.1.1",
+            "Imaging Unit %": "1.3.6.1.2.1.43.11.1.1.9.1.2"
+        },
+        "Xerox(R) B410 Printer": {
+            "Black Toner Current": "1.3.6.1.2.1.43.11.1.1.9.1.1",
+            "Black Toner Max": "1.3.6.1.2.1.43.11.1.1.8.1.1",
+            "Imaging Unit %": "1.3.6.1.2.1.43.11.1.1.9.1.14",
+            "Impressions %": "1.3.6.1.4.1.253.8.53.13.2.1.6.1.20.1"
+        },
+        "Xerox VersaLink B405": {
+            "Black Toner Current": "1.3.6.1.2.1.43.11.1.1.9.1.1",
+            "Black Toner Max": "1.3.6.1.2.1.43.11.1.1.8.1.1",
+            "Impressions %": "1.3.6.1.4.1.253.8.53.13.2.1.6.1.20.1",
+            "Drum Pages left %": "1.3.6.1.2.1.43.11.1.1.9.1.6"
+        },
+        "Xerox VersaLink B625": {
+            "Black Toner Current": "1.3.6.1.2.1.43.11.1.1.9.1.1",
+            "Black Toner Max": "1.3.6.1.2.1.43.11.1.1.8.1.1",
+            "Impressions %": "1.3.6.1.4.1.253.8.53.13.2.1.6.1.20.1",
+            "Imaging Unit %": "1.3.6.1.2.1.43.11.1.1.9.1.2"
+        },
+        "Xerox VersaLink B615": {
+            "Black Toner Current": "1.3.6.1.2.1.43.11.1.1.9.1.1",
+            "Black Toner Max": "1.3.6.1.2.1.43.11.1.1.8.1.1",
+            "Impressions %": "1.3.6.1.4.1.253.8.53.13.2.1.6.1.20.1",
+            "Imaging Unit %": "1.3.6.1.2.1.43.11.1.1.9.1.2",
+            "Drum Pages left %": "1.3.6.1.2.1.43.11.1.1.9.1.6"
+        },
+        "Xerox VersaLink C405": {
+            "Black Toner Current": "1.3.6.1.2.1.43.11.1.1.9.1.1",
+            "Black Toner Max": "1.3.6.1.2.1.43.11.1.1.8.1.1",
+            "Cyan Toner Current": "1.3.6.1.2.1.43.11.1.1.9.1.4",
+            "Cyan Toner Max": "1.3.6.1.2.1.43.11.1.1.8.1.4",
+            "Magenta Toner Current": "1.3.6.1.2.1.43.11.1.1.9.1.3",
+            "Magenta Toner Max": "1.3.6.1.2.1.43.11.1.1.8.1.3",
+            "Yellow Toner Current": "1.3.6.1.2.1.43.11.1.1.9.1.2",
+            "Yellow Toner Max": "1.3.6.1.2.1.43.11.1.1.8.1.2",
+            "Impressions %": "1.3.6.1.4.1.253.8.53.13.2.1.6.1.20.1",
+            "Drum Pages left %": "1.3.6.1.2.1.43.11.1.1.9.1.41"
+        },
+        "Xerox VersaLink C415 Color": {
+            "Black Toner Current": "1.3.6.1.2.1.43.11.1.1.9.1.1",
+            "Black Toner Max": "1.3.6.1.2.1.43.11.1.1.8.1.1",
+            "Cyan Toner Current": "1.3.6.1.2.1.43.11.1.1.9.1.2",
+            "Cyan Toner Max": "1.3.6.1.2.1.43.11.1.1.8.1.2",
+            "Magenta Toner Current": "1.3.6.1.2.1.43.11.1.1.9.1.3",
+            "Magenta Toner Max": "1.3.6.1.2.1.43.11.1.1.8.1.3",
+            "Yellow Toner Current": "1.3.6.1.2.1.43.11.1.1.9.1.4",
+            "Yellow Toner Max": "1.3.6.1.2.1.43.11.1.1.8.1.4",
+            "Imaging Unit %": "1.3.6.1.2.1.43.11.1.1.9.1.5",
+            "Impressions %": "1.3.6.1.4.1.253.8.53.13.2.1.6.1.20.1",
+            "Waste Toner %": "1.3.6.1.2.1.43.11.1.1.9.1.6"
+        },
+        "Xerox VersaLink B415": {
+            "Black Toner Current": "1.3.6.1.2.1.43.11.1.1.9.1.1",
+            "Black Toner Max": "1.3.6.1.2.1.43.11.1.1.8.1.1",
+            "Imaging Unit %": "1.3.6.1.2.1.43.11.1.1.9.1.2",
+            "Impressions %": "1.3.6.1.4.1.253.8.53.13.2.1.6.1.20.1"
+        },
+        "Xerox(R) B315 MFP": {
+            "Black Toner Current": "1.3.6.1.2.1.43.11.1.1.9.1.1",
+            "Black Toner Max": "1.3.6.1.2.1.43.11.1.1.8.1.1",
+            "Imaging Unit %": "1.3.6.1.2.1.43.11.1.1.9.1.14",
+            "Impressions %": "1.3.6.1.4.1.253.8.53.13.2.1.6.1.20.1"
+        },
+        "Xerox AltaLink C8170": {
+            "Black Toner Current": "1.3.6.1.2.1.43.11.1.1.9.1.1",
+            "Black Toner Max": "1.3.6.1.2.1.43.11.1.1.8.1.1",
+            "Cyan Toner Current": "1.3.6.1.2.1.43.11.1.1.9.1.2",
+            "Cyan Toner Max": "1.3.6.1.2.1.43.11.1.1.8.1.2",
+            "Magenta Toner Current": "1.3.6.1.2.1.43.11.1.1.9.1.3",
+            "Magenta Toner Max": "1.3.6.1.2.1.43.11.1.1.8.1.3",
+            "Yellow Toner Current": "1.3.6.1.2.1.43.11.1.1.9.1.4",
+            "Yellow Toner Max": "1.3.6.1.2.1.43.11.1.1.8.1.4",
+            "Drum R1 %": "1.3.6.1.2.1.43.11.1.1.9.1.5",
+            "Drum R2 %": "1.3.6.1.2.1.43.11.1.1.9.1.6",
+            "Drum R3 %": "1.3.6.1.2.1.43.11.1.1.9.1.7",
+            "Drum R4 %": "1.3.6.1.2.1.43.11.1.1.9.1.8",
+            "Impressions %": "1.3.6.1.4.1.253.8.53.13.2.1.6.1.20.1"
         }
     },
     "DB_FILE": "PrinterSupplies.db",
