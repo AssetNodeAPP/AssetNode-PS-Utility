@@ -1,4 +1,4 @@
-# DIMS - Device Inventory Management System
+# AssetNode PS Utility
 
 A cross-platform desktop application for monitoring printer supply levels via SNMP. Scans networked printers, tracks toner/drum/imaging unit levels over time, and sends email alerts when supplies are running low.
 

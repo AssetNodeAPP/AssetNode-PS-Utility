@@ -1,4 +1,4 @@
-# DIMS - Device Inventory Management System
+# AssetNode PS Utility - Printer Supply Scanner
 # Open source. MIT License.
 
 import smtplib
@@ -1131,7 +1131,7 @@ async def scan_printer(ip: str, log_callback=None, db_path=None):
 class PrinterScannerGUI:
     def __init__(self, root):
         self.root = root
-        self.root.title("Printer Supply Scanner with Email Alerts")
+        self.root.title("AssetNode PS Utility")
         self.root.geometry("1200x800")
         self.root.minsize(1000, 600)
 
