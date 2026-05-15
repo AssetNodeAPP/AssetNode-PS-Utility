@@ -16,15 +16,12 @@ from pathlib import Path
 import tkinter as tk
 from tkinter import ttk, scrolledtext, messagebox, filedialog
 from threading import Thread
-from pysnmp.hlapi.v3arch.asyncio import (
-    SnmpEngine,
-    CommunityData,
-    UdpTransportTarget,
-    ContextData,
-    ObjectType,
-    ObjectIdentity,
-    get_cmd
-)
+from pysnmp.entity.engine import SnmpEngine
+from pysnmp.hlapi.v3arch.asyncio.cmdgen import get_cmd
+from pysnmp.hlapi.v3arch.asyncio.auth import CommunityData
+from pysnmp.hlapi.v3arch.asyncio.transport import UdpTransportTarget
+from pysnmp.hlapi.v3arch.asyncio.context import ContextData
+from pysnmp.smi.rfc1902 import ObjectType, ObjectIdentity
 
 # CONFIGURATION TEST1
 # ============================================================
