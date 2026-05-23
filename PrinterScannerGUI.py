@@ -29,8 +29,18 @@ from pysnmp.smi.rfc1902 import ObjectType, ObjectIdentity
 # ============================================================
 
 if getattr(sys, 'frozen', False):
-    BASE_DIR = sys._MEIPASS
+    # PyInstaller: use the directory containing the .exe
+    BASE_DIR = os.path.dirname(sys.executable)
+    # First-run: copy bundled files from temp dir to exe directory
+    _MEIPASS = sys._MEIPASS
+    for _fname in ['oids.json', 'IPS.txt']:
+        _src = os.path.join(_MEIPASS, _fname)
+        _dst = os.path.join(BASE_DIR, _fname)
+        if not os.path.exists(_dst) and os.path.exists(_src):
+            import shutil
+            shutil.copy2(_src, _dst)
 else:
+    # Running from source: use script directory
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 OID_FILE = os.path.join(BASE_DIR, "oids.json")
@@ -2270,7 +2280,7 @@ class PrinterScannerGUI:
         
         # Load current IP addresses
         try:
-            with open("IPS.txt", "r") as f:
+            with open(IPS_FILE, "r") as f:
                 ip_lines = [line.strip() for line in f.readlines() if line.strip()]
         except FileNotFoundError:
             ip_lines = []
@@ -2332,7 +2342,7 @@ class PrinterScannerGUI:
             if messagebox.askyesno("Confirm", "Delete selected IP address?"):
                 tree.delete(selection[0])
                 try:
-                    with open("IPS.txt", "w") as f:
+                    with open(IPS_FILE, "w") as f:
                         for item in tree.get_children():
                             values = tree.item(item)['values']
                             f.write(values[0] + "\n")
@@ -2513,7 +2523,7 @@ class PrinterScannerGUI:
                     values = tree.item(item)['values']
                     ips_to_save.append(values[0])
                 
-                with open("IPS.txt", "w") as f:
+                with open(IPS_FILE, "w") as f:
                     for ip in ips_to_save:
                         f.write(ip + "\n")
                 
@@ -2709,14 +2719,14 @@ class PrinterScannerGUI:
 
     def load_ips(self):
         try:
-            with open("IPS.txt") as f:
+            with open(IPS_FILE) as f:
                 self.ips = [line.strip() for line in f if line.strip()]
             self.ip_count_var.set(f"IPs loaded: {len(self.ips)}")
             self.log(f"✅ Loaded {len(self.ips)} IP addresses")
         except FileNotFoundError:
             self.ips = []
             self.ip_count_var.set("IPs loaded: 0")
-            with open("IPS.txt", "w") as f:
+            with open(IPS_FILE, "w") as f:
                 f.write("")
             self.log("📄 Created empty IPS.txt file")
 
