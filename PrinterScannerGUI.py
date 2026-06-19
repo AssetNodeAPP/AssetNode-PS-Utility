@@ -15,6 +15,7 @@ import socket
 from datetime import datetime, timedelta
 from pathlib import Path
 import tkinter as tk
+import tkinter.font as tkfont
 from tkinter import ttk, scrolledtext, messagebox, filedialog
 from threading import Thread
 from pysnmp.entity.engine import SnmpEngine
@@ -81,6 +82,12 @@ SCAN_CONFIG = oid_data.get("SCAN_CONFIG", {
     "interval": 1.0,
     "backup_time": "08:00",
     "auto_scan_enabled": False
+})
+
+SERVER_CONFIG = oid_data.get("SERVER_CONFIG", {
+    "enabled": False,
+    "server_url": "",
+    "api_key": ""
 })
 
 
@@ -376,9 +383,15 @@ def get_db_connection(db_path=None):
 
 
 def init_db(db_path=None):
-    """Initialize tables in the selected DB with robust error handling"""
-    # Always use PrinterSupplies.db - database name cannot be changed
-    db_path = "PrinterSupplies.db"
+    """Initialize tables in the selected DB with robust error handling.
+
+    The database *filename* is fixed at PrinterSupplies.db (another app
+    relies on that name), but the caller's chosen directory is honoured.
+    """
+    if db_path is None:
+        db_path = DB_FILE
+    # Keep the fixed filename, but respect the directory the caller picked.
+    db_path = str(Path(db_path).parent / "PrinterSupplies.db")
 
     try:
         db_dir = Path(db_path).parent
@@ -495,13 +508,13 @@ def get_last_scan(ip, db_path=None):
     c = conn.cursor()
     c.execute("SELECT * FROM printer_scans WHERE ip = ?", (ip,))
     row = c.fetchone()
-    conn.close()
 
     if not row:
+        conn.close()
         return {}
 
-    conn = get_db_connection(DB_FILE)
-    c = conn.cursor()
+    # Read column names from the SAME database we just queried, so the
+    # values line up with the right columns even for a non-default DB.
     c.execute("PRAGMA table_info(printer_scans)")
     columns = [col[1] for col in c.fetchall()]
     conn.close()
@@ -917,6 +930,37 @@ async def fetch_oids(ip: str, oids: dict) -> dict:
 
 
 # ============================================================
+# SERVER PUSH
+# ============================================================
+
+def push_to_server(ip, model, supplies, hostname="", log_callback=None):
+    """POST scan results to a remote DIMS instance. Fails silently."""
+    if not SERVER_CONFIG.get("enabled"):
+        return
+    server_url = SERVER_CONFIG.get("server_url", "").rstrip("/")
+    api_key = SERVER_CONFIG.get("api_key", "")
+    if not server_url or not api_key:
+        return
+    try:
+        import requests as _req
+        resp = _req.post(
+            f"{server_url}/api/scanner/push",
+            json={"ip": ip, "model": model, "supplies": supplies, "hostname": hostname},
+            headers={"X-API-Key": api_key},
+            timeout=10,
+        )
+        if resp.status_code == 200:
+            if log_callback:
+                log_callback(f"  ☁️ Pushed to server ({resp.json().get('supplies_written', 0)} supplies)")
+        else:
+            if log_callback:
+                log_callback(f"  ⚠️ Server push failed: HTTP {resp.status_code} — {resp.text[:120]}")
+    except Exception as e:
+        if log_callback:
+            log_callback(f"  ⚠️ Server push error: {e}")
+
+
+# ============================================================
 # PRINTER DISCOVERY (Subnet Scanner)
 # ============================================================
 
@@ -1176,6 +1220,197 @@ async def scan_printer(ip: str, log_callback=None, db_path=None):
 
 
 # ============================================================
+# MODERN THEME — centralized design system
+# ============================================================
+
+# A dark "tech" palette: deep navy canvas, slate surfaces, soft borders,
+# a bright indigo accent, and an even darker "terminal" console for the log.
+PALETTE = {
+    "window":        "#070b15",   # deep outer canvas behind the app
+    "surface":       "#151b2b",   # frames, cards, labels
+    "surface_alt":   "#1e2740",   # subtle fills (default buttons, headings)
+    "surface_hover": "#27324f",
+    "surface_press": "#2f3c5e",
+    "surface_dis":   "#171d2b",   # disabled control fill
+    "border":        "#2a3651",
+    "text":          "#e6ebf5",
+    "text_muted":    "#9aa7bd",
+    "accent":        "#6366f1",   # indigo primary (brighter for dark bg)
+    "accent_hover":  "#818cf8",
+    "accent_press":  "#4f46e5",
+    "accent_soft":   "#3a3f63",   # disabled accent
+    "accent_fg":     "#ffffff",
+    "danger":        "#ef4444",
+    "danger_hover":  "#f87171",
+    "danger_press":  "#dc2626",
+    "danger_soft":   "#5c3236",
+    "link":          "#93c5fd",   # readable "blue" on dark
+    # Dark console (recessed within the slate surface)
+    "console_bg":    "#0a0e17",
+    "console_fg":    "#cdd6e8",
+    "c_success":     "#4ade80",
+    "c_error":       "#f87171",
+    "c_warn":        "#fbbf24",
+    "c_info":        "#93c5fd",
+    "c_muted":       "#7c8aa3",
+}
+
+FONT_FAMILY = "Segoe UI"
+MONO_FAMILY = "Cascadia Mono"
+
+
+def apply_modern_theme(root):
+    """Apply a single cohesive design system across every ttk widget.
+
+    Uses the 'clam' base because it honours custom colours (the native
+    Windows themes ignore most styling). Called once before the widgets
+    are built so fonts and option defaults take effect.
+    """
+    p = PALETTE
+    style = ttk.Style(root)
+    try:
+        style.theme_use("clam")
+    except tk.TclError:
+        pass
+
+    # ---- Typography: modern system font everywhere it isn't overridden ----
+    for fname in ("TkDefaultFont", "TkTextFont", "TkMenuFont",
+                  "TkHeadingFont", "TkTooltipFont"):
+        try:
+            tkfont.nametofont(fname).configure(family=FONT_FAMILY, size=10)
+        except tk.TclError:
+            pass
+
+    root.configure(bg=p["window"])
+    # New Toplevels (dialogs) inherit the surface colour so their edges
+    # match the ttk frames placed inside them.
+    root.option_add("*Toplevel.background", p["surface"])
+    # Classic (non-ttk) Tk widgets — secondary log consoles, the OID-manager
+    # canvas — default to white; pull them onto the dark scheme too.
+    root.option_add("*Text.background", p["console_bg"])
+    root.option_add("*Text.foreground", p["console_fg"])
+    root.option_add("*Text.insertBackground", p["console_fg"])
+    root.option_add("*Text.selectBackground", p["accent"])
+    root.option_add("*Canvas.background", p["surface"])
+
+    # ---- Base ----
+    style.configure(".",
+                    background=p["surface"], foreground=p["text"],
+                    fieldbackground=p["surface"], bordercolor=p["border"],
+                    lightcolor=p["border"], darkcolor=p["border"],
+                    focuscolor=p["accent"], font=(FONT_FAMILY, 10))
+
+    style.configure("TFrame", background=p["surface"])
+    style.configure("TLabel", background=p["surface"], foreground=p["text"])
+    style.configure("Muted.TLabel", background=p["surface"],
+                    foreground=p["text_muted"])
+    style.configure("Title.TLabel", background=p["surface"],
+                    foreground=p["text"], font=(FONT_FAMILY, 20, "bold"))
+    style.configure("Subtitle.TLabel", background=p["surface"],
+                    foreground=p["text_muted"], font=(FONT_FAMILY, 10))
+
+    # ---- Card-style LabelFrame ----
+    style.configure("TLabelframe", background=p["surface"],
+                    bordercolor=p["border"], relief="solid", borderwidth=1)
+    style.configure("TLabelframe.Label", background=p["surface"],
+                    foreground=p["accent"], font=(FONT_FAMILY, 10, "bold"))
+
+    # ---- Buttons ----
+    # Secondary / default
+    style.configure("TButton", background=p["surface_alt"], foreground=p["text"],
+                    bordercolor=p["border"], relief="flat",
+                    padding=(13, 7), font=(FONT_FAMILY, 9))
+    style.map("TButton",
+              background=[("pressed", p["surface_press"]),
+                          ("active", p["surface_hover"]),
+                          ("disabled", p["surface_dis"])],
+              foreground=[("disabled", p["text_muted"])],
+              bordercolor=[("active", p["accent"]), ("focus", p["accent"])])
+
+    # Primary / accent
+    style.configure("Accent.TButton", background=p["accent"],
+                    foreground=p["accent_fg"], bordercolor=p["accent"],
+                    relief="flat", padding=(15, 8), font=(FONT_FAMILY, 9, "bold"))
+    style.map("Accent.TButton",
+              background=[("pressed", p["accent_press"]),
+                          ("active", p["accent_hover"]),
+                          ("disabled", p["accent_soft"])],
+              foreground=[("disabled", "#eef2ff")],
+              bordercolor=[("active", p["accent_hover"])])
+
+    # Destructive
+    style.configure("Danger.TButton", background=p["danger"],
+                    foreground="#ffffff", bordercolor=p["danger"],
+                    relief="flat", padding=(15, 8), font=(FONT_FAMILY, 9, "bold"))
+    style.map("Danger.TButton",
+              background=[("pressed", p["danger_press"]),
+                          ("active", p["danger_hover"]),
+                          ("disabled", p["danger_soft"])],
+              foreground=[("disabled", "#fff5f5")])
+
+    # ---- Inputs ----
+    style.configure("TEntry", fieldbackground=p["surface"], foreground=p["text"],
+                    bordercolor=p["border"], lightcolor=p["border"],
+                    darkcolor=p["border"], relief="flat", padding=5)
+    style.map("TEntry",
+              bordercolor=[("focus", p["accent"])],
+              lightcolor=[("focus", p["accent"])],
+              darkcolor=[("focus", p["accent"])])
+
+    style.configure("TSpinbox", fieldbackground=p["surface"], foreground=p["text"],
+                    bordercolor=p["border"], lightcolor=p["border"],
+                    darkcolor=p["border"], arrowsize=12, relief="flat", padding=4)
+    style.map("TSpinbox",
+              bordercolor=[("focus", p["accent"])],
+              lightcolor=[("focus", p["accent"])],
+              darkcolor=[("focus", p["accent"])])
+
+    # ---- Checkbutton ----
+    style.configure("TCheckbutton", background=p["surface"], foreground=p["text"],
+                    focuscolor=p["surface"], indicatorrelief="flat")
+    style.map("TCheckbutton",
+              foreground=[("disabled", "#9aa3b2")],
+              indicatorcolor=[("selected", p["accent"]),
+                              ("!selected", p["surface"])],
+              indicatorbackground=[("selected", p["accent"]),
+                                   ("active", p["surface_hover"])])
+
+    # ---- Notebook ----
+    style.configure("TNotebook", background=p["surface"],
+                    bordercolor=p["border"], tabmargins=(2, 4, 2, 0))
+    style.configure("TNotebook.Tab", background=p["surface_alt"],
+                    foreground=p["text_muted"], padding=(16, 9),
+                    font=(FONT_FAMILY, 9))
+    style.map("TNotebook.Tab",
+              background=[("selected", p["surface"])],
+              foreground=[("selected", p["accent"])])
+
+    # ---- Treeview ----
+    style.configure("Treeview", background=p["surface"],
+                    fieldbackground=p["surface"], foreground=p["text"],
+                    bordercolor=p["border"], relief="flat", rowheight=27)
+    style.configure("Treeview.Heading", background=p["surface_alt"],
+                    foreground=p["text_muted"], relief="flat", padding=7,
+                    font=(FONT_FAMILY, 9, "bold"))
+    style.map("Treeview.Heading", background=[("active", p["surface_hover"])])
+    style.map("Treeview",
+              background=[("selected", p["accent"])],
+              foreground=[("selected", "#ffffff")])
+
+    # ---- Scrollbar ----
+    style.configure("TScrollbar", background=p["surface_alt"],
+                    troughcolor=p["surface"], bordercolor=p["surface"],
+                    arrowcolor=p["text_muted"], relief="flat")
+    style.map("TScrollbar", background=[("active", p["surface_press"])])
+
+    # ---- Progressbar ----
+    style.configure("TProgressbar", background=p["accent"],
+                    troughcolor=p["surface_alt"], bordercolor=p["border"])
+
+    return style
+
+
+# ============================================================
 # GUI APPLICATION
 # ============================================================
 
@@ -1193,6 +1428,7 @@ class PrinterScannerGUI:
         self.stop_requested = False
         self.db_enabled = False
         self.email_scheduler_running = False
+        self.email_scheduler_generation = 0
 
         self.create_widgets()
         self.load_ips()
@@ -1216,7 +1452,9 @@ class PrinterScannerGUI:
         return self.db_path_var.get()
 
     def create_widgets(self):
-        main_frame = ttk.Frame(self.root, padding="10")
+        apply_modern_theme(self.root)
+
+        main_frame = ttk.Frame(self.root, padding="16")
         main_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
 
         self.root.columnconfigure(0, weight=1)
@@ -1224,9 +1462,16 @@ class PrinterScannerGUI:
         main_frame.columnconfigure(0, weight=1)
         main_frame.rowconfigure(4, weight=1)  # Changed from 3 to 4
 
-        title_label = ttk.Label(main_frame, text="🖨️ Printer Supply Scanner with Email Alerts",
-                                font=("Helvetica", 16, "bold"))
-        title_label.grid(row=0, column=0, columnspan=3, pady=(0, 10))
+        # ---- Header ----
+        header = ttk.Frame(main_frame)
+        header.grid(row=0, column=0, columnspan=3, sticky="ew", pady=(0, 14))
+        header.columnconfigure(0, weight=1)
+        ttk.Label(header, text="🖨  Printer Supply Scanner",
+                  style="Title.TLabel").grid(row=0, column=0, sticky="w")
+        ttk.Label(header, text="SNMP monitoring · email alerts · supply history",
+                  style="Subtitle.TLabel").grid(row=1, column=0, sticky="w", pady=(2, 0))
+        accent_bar = tk.Frame(header, background=PALETTE["accent"], height=3)
+        accent_bar.grid(row=2, column=0, columnspan=3, sticky="ew", pady=(10, 0))
 
         # Control Frame
         control_frame = ttk.LabelFrame(main_frame, text="Scan Controls", padding="10")
@@ -1291,14 +1536,17 @@ class PrinterScannerGUI:
         auto_scan_check.grid(row=0, column=6, padx=5)
 
         self.start_button = ttk.Button(control_frame, text="▶ Start Auto Scan",
+                                       style="Accent.TButton",
                                        command=self.start_scanning)
         self.start_button.grid(row=0, column=7, padx=10)
 
         self.stop_button = ttk.Button(control_frame, text="⏹ Stop",
+                                      style="Danger.TButton",
                                       command=self.stop_scanning, state=tk.DISABLED)
         self.stop_button.grid(row=1, column=7, padx=5)
 
         self.manual_button = ttk.Button(control_frame, text="🔍 Scan Now",
+                                        style="Accent.TButton",
                                         command=self.manual_scan)
         self.manual_button.grid(row=0, column=8, padx=5)
 
@@ -1360,14 +1608,15 @@ class PrinterScannerGUI:
         test_oid_entry = ttk.Entry(oid_test_frame, textvariable=self.test_oid_var, width=40)
         test_oid_entry.grid(row=0, column=3, padx=5, sticky=tk.W)
 
-        test_oid_button = ttk.Button(oid_test_frame, text="🧪 Test OID", command=self.test_oid)
+        test_oid_button = ttk.Button(oid_test_frame, text="🧪 Test OID",
+                                     style="Accent.TButton", command=self.test_oid)
         test_oid_button.grid(row=0, column=4, padx=10)
 
         ttk.Label(oid_test_frame, text="Result:", font=("Helvetica", 9, "bold")).grid(row=1, column=0, padx=5,
                                                                                       pady=(5, 0), sticky=tk.W)
         self.test_result_var = tk.StringVar(value="No test performed yet")
         result_label = ttk.Label(oid_test_frame, textvariable=self.test_result_var,
-                                 font=("Helvetica", 9), foreground="blue")
+                                 font=("Helvetica", 9), foreground=PALETTE["link"])
         result_label.grid(row=1, column=1, columnspan=4, padx=5, pady=(5, 0), sticky=tk.W)
 
         # Alert Configuration Frame
@@ -1424,6 +1673,16 @@ class PrinterScannerGUI:
                                    command=self.open_ip_manager)
         ip_manage_btn.grid(row=2, column=2, columnspan=2, padx=5, pady=5, sticky=tk.W)
 
+        # Server Push Config Button
+        server_cfg_btn = ttk.Button(alert_frame, text="☁️ Server Config",
+                                    command=self.open_server_config)
+        server_cfg_btn.grid(row=2, column=4, columnspan=2, padx=5, pady=5, sticky=tk.W)
+
+        self.server_status_var = tk.StringVar(value=self._server_status_text())
+        ttk.Label(alert_frame, textvariable=self.server_status_var,
+                  font=("Helvetica", 8, "italic"), foreground=PALETTE["text_muted"]).grid(
+            row=2, column=6, columnspan=4, padx=5, sticky=tk.W)
+
         # Log Frame
         log_frame = ttk.LabelFrame(main_frame, text="Scan Log", padding="10")
         log_frame.grid(row=4, column=0, columnspan=3, sticky=(tk.W, tk.E, tk.N, tk.S))
@@ -1431,8 +1690,22 @@ class PrinterScannerGUI:
         log_frame.rowconfigure(0, weight=1)
 
         self.log_text = scrolledtext.ScrolledText(log_frame, wrap=tk.WORD,
-                                                  height=20, font=("Consolas", 9))
+                                                  height=20, font=(MONO_FAMILY, 10))
         self.log_text.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+
+        # Dark "terminal" console with colour-coded severity tags
+        _p = PALETTE
+        self.log_text.configure(
+            background=_p["console_bg"], foreground=_p["console_fg"],
+            insertbackground=_p["console_fg"], selectbackground=_p["accent"],
+            relief="flat", borderwidth=0, padx=14, pady=12,
+            spacing1=1, spacing3=2,
+        )
+        self.log_text.tag_configure("ts", foreground=_p["c_muted"])
+        self.log_text.tag_configure("success", foreground=_p["c_success"])
+        self.log_text.tag_configure("error", foreground=_p["c_error"])
+        self.log_text.tag_configure("warn", foreground=_p["c_warn"])
+        self.log_text.tag_configure("info", foreground=_p["c_info"])
 
         clear_button = ttk.Button(log_frame, text="Clear Log", command=self.clear_log)
         clear_button.grid(row=1, column=0, pady=(5, 0))
@@ -1838,7 +2111,7 @@ class PrinterScannerGUI:
             "Example: 'Toner Current', 'Toner Max' → 'Toner %'"
         )
         note_label = ttk.Label(dialog, text=note_text, font=("Helvetica", 9), 
-                              foreground="#555", justify=tk.LEFT, padding=10)
+                              foreground=PALETTE["text_muted"], justify=tk.LEFT, padding=10)
         note_label.pack(fill=tk.X, padx=10, pady=(10, 0))
         
         # Load current OID data
@@ -2730,9 +3003,23 @@ class PrinterScannerGUI:
                 f.write("")
             self.log("📄 Created empty IPS.txt file")
 
+    @staticmethod
+    def _log_tag(message):
+        """Pick a console colour tag from the message content."""
+        if any(s in message for s in ("✅", "🎉", "✓", "successfully", "complete")):
+            return "success"
+        if any(s in message for s in ("❌", "Error", "error", "failed", "Failed")):
+            return "error"
+        if any(s in message for s in ("⚠️", "ALERT", "Warning", "⏭️")):
+            return "warn"
+        if any(s in message for s in ("📡", "🔍", "▶", "🚀", "☁️", "📨", "🧪", "⏰")):
+            return "info"
+        return ""
+
     def log(self, message):
         timestamp = datetime.now().strftime("%H:%M:%S")
-        self.log_text.insert(tk.END, f"[{timestamp}] {message}\n")
+        self.log_text.insert(tk.END, f"[{timestamp}] ", "ts")
+        self.log_text.insert(tk.END, f"{message}\n", self._log_tag(message))
         self.log_text.see(tk.END)
         self.root.update_idletasks()
 
@@ -2768,6 +3055,85 @@ class PrinterScannerGUI:
 
     def clear_log(self):
         self.log_text.delete(1.0, tk.END)
+
+    def _server_status_text(self):
+        if not SERVER_CONFIG.get("enabled"):
+            return "Server push: disabled"
+        url = SERVER_CONFIG.get("server_url", "")
+        return f"Server push: enabled → {url}" if url else "Server push: enabled (no URL set)"
+
+    def open_server_config(self):
+        global SERVER_CONFIG
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Server Push Configuration")
+        dialog.geometry("500x280")
+        dialog.resizable(False, False)
+
+        ttk.Label(dialog, text="Push scan results to a remote DIMS instance after each scan.",
+                  font=("Helvetica", 9, "italic")).pack(padx=15, pady=(12, 4), anchor=tk.W)
+
+        enabled_var = tk.BooleanVar(value=SERVER_CONFIG.get("enabled", False))
+        ttk.Checkbutton(dialog, text="Enable server push", variable=enabled_var).pack(padx=15, anchor=tk.W)
+
+        form = ttk.Frame(dialog)
+        form.pack(fill=tk.X, padx=15, pady=8)
+
+        ttk.Label(form, text="Server URL:").grid(row=0, column=0, sticky=tk.W, pady=4)
+        url_var = tk.StringVar(value=SERVER_CONFIG.get("server_url", ""))
+        url_entry = ttk.Entry(form, textvariable=url_var, width=45)
+        url_entry.grid(row=0, column=1, padx=8, sticky=tk.W)
+        ttk.Label(form, text="e.g. https://acme.yourdomain.com",
+                  font=("Helvetica", 8, "italic"), foreground=PALETTE["text_muted"]).grid(row=1, column=1, padx=8, sticky=tk.W)
+
+        ttk.Label(form, text="API Key:").grid(row=2, column=0, sticky=tk.W, pady=4)
+        key_var = tk.StringVar(value=SERVER_CONFIG.get("api_key", ""))
+        ttk.Entry(form, textvariable=key_var, width=45, show="*").grid(row=2, column=1, padx=8, sticky=tk.W)
+
+        def test_connection():
+            url = url_var.get().strip().rstrip("/")
+            key = key_var.get().strip()
+            if not url or not key:
+                messagebox.showwarning("Missing fields", "Enter a server URL and API key first.")
+                return
+            try:
+                import requests as _req
+                resp = _req.post(f"{url}/api/scanner/push",
+                                 json={"ip": "0.0.0.0", "model": "__test__", "supplies": {}},
+                                 headers={"X-API-Key": key}, timeout=8)
+                if resp.status_code in (200, 400):
+                    messagebox.showinfo("Connection OK", f"Reached server successfully (HTTP {resp.status_code}).")
+                elif resp.status_code == 401:
+                    messagebox.showerror("Auth failed", "Server rejected the API key.")
+                else:
+                    messagebox.showwarning("Unexpected response", f"HTTP {resp.status_code}: {resp.text[:200]}")
+            except Exception as e:
+                messagebox.showerror("Connection failed", str(e))
+
+        btn_row = ttk.Frame(dialog)
+        btn_row.pack(fill=tk.X, padx=15, pady=8)
+        ttk.Button(btn_row, text="Test Connection", command=test_connection).pack(side=tk.LEFT)
+
+        def save():
+            global SERVER_CONFIG
+            SERVER_CONFIG = {
+                "enabled": enabled_var.get(),
+                "server_url": url_var.get().strip().rstrip("/"),
+                "api_key": key_var.get().strip(),
+            }
+            try:
+                with open(OID_FILE, "r") as f:
+                    data = json.load(f)
+                data["SERVER_CONFIG"] = SERVER_CONFIG
+                with open(OID_FILE, "w") as f:
+                    json.dump(data, f, indent=4)
+                self.server_status_var.set(self._server_status_text())
+                self.log(f"✅ Server config saved — push {'enabled' if SERVER_CONFIG['enabled'] else 'disabled'}")
+                dialog.destroy()
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to save: {e}")
+
+        ttk.Button(btn_row, text="Save", command=save).pack(side=tk.RIGHT)
+        ttk.Button(btn_row, text="Cancel", command=dialog.destroy).pack(side=tk.RIGHT, padx=5)
 
     def manual_scan(self):
         if self.auto_scanning or self.manual_scan_active:
@@ -2854,9 +3220,10 @@ class PrinterScannerGUI:
             loop.run_until_complete(self.perform_scan(is_manual=True))
             loop.close()
         except Exception as e:
-            self.log(f"❌ Error during scan: {e}")
             import traceback
-            self.log(traceback.format_exc())
+            tb = traceback.format_exc()
+            self.root.after(0, lambda e=e: self.log(f"❌ Error during scan: {e}"))
+            self.root.after(0, lambda t=tb: self.log(t))
         finally:
             self.manual_scan_active = False
             self.root.after(0, lambda: self.manual_button.config(state=tk.NORMAL))
@@ -2908,9 +3275,10 @@ class PrinterScannerGUI:
                 try:
                     loop.run_until_complete(self.perform_scan(is_manual=False))
                 except Exception as e:
-                    self.log(f"❌ Error during scan: {e}")
                     import traceback
-                    self.log(traceback.format_exc())
+                    tb = traceback.format_exc()
+                    self.root.after(0, lambda e=e: self.log(f"❌ Error during scan: {e}"))
+                    self.root.after(0, lambda t=tb: self.log(t))
 
                 if not self.auto_scanning or self.stop_requested:
                     break
@@ -2957,7 +3325,13 @@ class PrinterScannerGUI:
                 if alerts:
                     all_alerts.extend(alerts)
 
-                if not result:
+                if result:
+                    hostname = result.get("Hostname", "")
+                    model = result.get("Model", result.get("model", ""))
+                    supplies = {k: v for k, v in result.items() if k not in ("Hostname", "Model", "model", "Description", "Location", "Serial Number")}
+                    push_to_server(ip, model, supplies, hostname,
+                                   log_callback=lambda msg: self.root.after(0, lambda m=msg: self.log(m)))
+                else:
                     self.root.after(0, lambda i=ip: self.log(f"  ⚠️ No data returned for {i}"))
 
             except Exception as e:
@@ -2995,21 +3369,30 @@ class PrinterScannerGUI:
             self.root.after(0, lambda: self.status_var.set("Ready"))
 
     def start_email_scheduler(self):
-        """Start the email scheduler thread if scheduling is enabled"""
+        """Start the email scheduler thread if scheduling is enabled.
+
+        Each start bumps a generation token; the worker exits as soon as its
+        token is superseded, so there is never more than one active scheduler
+        even across rapid stop/start cycles.
+        """
         if EMAIL_CONFIG.get("schedule_enabled", False) and ALERT_CONFIG.get("enabled", False):
+            self.email_scheduler_generation += 1
+            my_generation = self.email_scheduler_generation
             self.email_scheduler_running = True
-            thread = Thread(target=self.run_email_scheduler, daemon=True)
+            thread = Thread(target=self.run_email_scheduler,
+                            args=(my_generation,), daemon=True)
             thread.start()
             self.log("📧 Email scheduler started")
 
     def stop_email_scheduler(self):
-        """Stop the email scheduler"""
+        """Stop the email scheduler (invalidates any running generation)."""
+        self.email_scheduler_generation += 1
         self.email_scheduler_running = False
         self.log("📧 Email scheduler stopped")
 
-    def run_email_scheduler(self):
+    def run_email_scheduler(self, generation):
         """Run the email scheduler in background thread"""
-        while self.email_scheduler_running:
+        while self.email_scheduler_running and generation == self.email_scheduler_generation:
             try:
                 if EMAIL_CONFIG.get("schedule_enabled", False) and ALERT_CONFIG.get("enabled", False):
                     if should_send_scheduled_email() and can_send_scheduled_email_today():
@@ -3030,7 +3413,7 @@ class PrinterScannerGUI:
                 
                 # Sleep for 30 seconds before next check
                 for _ in range(30):
-                    if not self.email_scheduler_running:
+                    if not self.email_scheduler_running or generation != self.email_scheduler_generation:
                         break
                     time.sleep(1)
                     

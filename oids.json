@@ -124,5 +124,6 @@
         "backup_time": "18:00",
         "auto_scan_enabled": false,
         "enable_specific_time": true
-    }
+    },
+    "DB_PRINTERS": "C:/Users/cjach/PycharmProjects/DIMS/printers.db"
 }
